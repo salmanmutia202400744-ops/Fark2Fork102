@@ -17,6 +17,7 @@ const checkoutRoutes = require("./routes/checkoutRoutes");
 const mayaPaymentRoutes = require("./routes/mayaPaymentRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const sellerOrderRoutes = require("./routes/sellerOrderRoutes");
 
 // Error handlers
 const {
@@ -96,6 +97,9 @@ app.use("/api/v1/cart", cartRoutes);
 
 // Seller management
 app.use("/api/v1/seller", sellerRoutes);
+
+// New seller order management
+app.use("/api/v1/seller/orders", sellerOrderRoutes);
 
 // Customer checkout
 app.use("/api/v1/checkout", checkoutRoutes);
