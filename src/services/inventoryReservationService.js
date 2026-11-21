@@ -159,14 +159,35 @@ async function expireOneOrder(orderId) {
       );
     }
 
-    await client.query(
-      `UPDATE orders
-       SET status = 'CANCELLED',
-           updated_at = NOW()
-       WHERE id = $1
-         AND status = 'PENDING'`,
-      [orderId]
-    );
+    
+const cancelledOrder = await client.query(
+  `UPDATE orders
+   SET status = 'CANCELLED',
+       updated_at = NOW()
+   WHERE id = $1
+     AND status = 'PENDING'
+   RETURNING id`,
+  [orderId]
+);
+
+if (cancelledOrder.rowCount !== 1) {
+  throw new Error(
+    "Order status changed during inventory cleanup."
+  );
+}
+
+// Synchronize every seller order under this checkout.
+await client.query(
+  `UPDATE seller_orders
+   SET status = 'CANCELLED',
+       updated_at = NOW()
+   WHERE order_id = $1
+     AND status = 'PENDING'`,
+  [orderId]
+);
+
+await client.query("COMMIT");
+
 
     await client.query("COMMIT");
 

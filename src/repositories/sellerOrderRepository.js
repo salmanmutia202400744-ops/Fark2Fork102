@@ -86,9 +86,43 @@ async function findSellerOrderItems(sellerOrderId, sellerId) {
   return result.rows;
 }
 
+async function findSellerProfileId(userId, client = pool) {
+  const result = await client.query(
+    `SELECT id
+     FROM seller_profiles
+     WHERE user_id = $1
+     LIMIT 1`,
+    [userId]
+  );
+
+  return result.rows[0]?.id || null;
+}
+
+async function updateSellerOrderStatus(
+  client,
+  sellerOrderId,
+  sellerId,
+  nextStatus
+) {
+  const result = await client.query(
+    `UPDATE seller_orders
+     SET status = $1::order_status,
+         updated_at = NOW()
+     WHERE id = $2
+       AND seller_id = $3
+     RETURNING id, order_id, seller_id, status, updated_at`,
+    [nextStatus, sellerOrderId, sellerId]
+  );
+
+  return result.rows[0] || null;
+}
+
+
 module.exports = {
   findSellerOrders,
   countSellerOrders,
   findSellerOrder,
-  findSellerOrderItems
+  findSellerOrderItems,
+  findSellerProfileId,
+  updateSellerOrderStatus
 };

@@ -270,13 +270,25 @@ async function cancelOrder(orderId, customerId) {
       [orderId, customerId]
     );
 
-    if (updated.rowCount !== 1) {
-      throw new Error(
-        "Order status changed during cancellation."
-      );
-    }
+    
+if (updated.rowCount !== 1) {
+  throw new Error(
+    "Order status changed during cancellation."
+  );
+}
 
-    await client.query("COMMIT");
+// Synchronize seller orders with the cancelled parent order.
+await client.query(
+  `UPDATE seller_orders
+   SET status = 'CANCELLED',
+       updated_at = NOW()
+   WHERE order_id = $1
+     AND status = 'PENDING'`,
+  [orderId]
+);
+
+await client.query("COMMIT");
+
     inTransaction = false;
 
     return {

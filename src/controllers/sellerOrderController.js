@@ -89,8 +89,41 @@ async function getStatus(req, res, next) {
   }
 }
 
+
+async function updateStatus(req, res, next) {
+  try {
+    validateId(req.params.id);
+
+    const status = req.body?.status;
+
+    if (typeof status !== "string") {
+      throw new ApiError(
+        400,
+        "INVALID_SELLER_STATUS",
+        "A status string is required."
+      );
+    }
+
+    const result = await service.updateStatus(
+      req.params.id,
+      req.user.id,
+      status
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Seller order status updated successfully.",
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
   listOrders,
   getOrder,
-  getStatus
+  getStatus,
+  updateStatus
 };
