@@ -13,6 +13,7 @@ const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const sellerRoutes = require("./routes/sellerRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
+const mayaPaymentRoutes = require("./routes/mayaPaymentRoutes");
 
 const {
   requestId,
@@ -91,6 +92,7 @@ app.use("/api/v1/seller", sellerRoutes);
 // Customer checkout
 app.use("/api/v1/checkout", checkoutRoutes);
 
+app.use("/api/v1/payments", mayaPaymentRoutes);
 // Error handlers must be last
 app.use(notFound);
 app.use(errorHandler);
