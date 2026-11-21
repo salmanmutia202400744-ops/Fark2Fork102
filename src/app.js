@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 
 const env = require("./config/environment");
 
+// Import routes
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -16,6 +17,7 @@ const checkoutRoutes = require("./routes/checkoutRoutes");
 const mayaPaymentRoutes = require("./routes/mayaPaymentRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 
+// Error handlers
 const {
   requestId,
   notFound,
@@ -51,6 +53,7 @@ app.use(
   })
 );
 
+// General API rate limit
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -60,11 +63,12 @@ app.use(
   })
 );
 
-// Register Maya payment webhook routes here
-// before express.json() when implementing Maya.
+// Register raw-body Maya webhook routes here
+// when implementing verified webhook handling.
 
 app.use(express.json({ limit: "1mb" }));
 
+// Root endpoint
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -75,6 +79,16 @@ app.get("/", (req, res) => {
     }
   });
 });
+
+// Health
+app.use("/api/v1/health", healthRoutes);
+
+// Authentication
+app.use("/api/v1/auth", authRoutes);
+
+// Categories and products
+app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/products", productRoutes);
 
 // Shopping cart
 app.use("/api/v1/cart", cartRoutes);
