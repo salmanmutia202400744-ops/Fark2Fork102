@@ -10,7 +10,6 @@ const controller = require("../controllers/orderController");
 
 const router = express.Router();
 
-// All endpoints require an authenticated customer.
 router.use(requireAuth);
 router.use(requireRole("CUSTOMER"));
 
@@ -20,11 +19,10 @@ router.get("/", controller.listOrders);
 // Individual order details
 router.get("/:id", controller.getOrder);
 
-// Order status
+// Current order status
 router.get("/:id/status", controller.getStatus);
 
-// Cancellation is intentionally disabled until
-// paymentService.js locking is verified.
-// router.post("/:id/cancel", controller.cancel);
+// Cancel an eligible unpaid order
+router.post("/:id/cancel", controller.cancel);
 
 module.exports = router;
