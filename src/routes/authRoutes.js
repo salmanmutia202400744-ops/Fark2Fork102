@@ -1,78 +1,74 @@
 
 const express = require("express");
 const { z } = require("zod");
+const rateLimit = require("express-rate-limit");
 
-const authController = require("../controllers/authController");
 const validate = require("../middleware/validate");
-const authenticate = require("../middleware/authMiddleware");
+
+const {
+  requireAuth
+} = require("../middleware/authMiddleware");
+
+const controller = require("../controllers/authController");
 
 const router = express.Router();
 
-const registerSchema = z.object({
-  first_name: z.string().trim().min(2).max(100),
-  last_name: z.string().trim().min(2).max(100),
-
-  email: z.string().trim().email().max(255),
-
-  password: z.string().min(8).max(72),
-
-  phone: z.string().trim().max(30).optional().or(z.literal("")),
-
-  role: z.enum(["CUSTOMER", "SELLER"]).default("CUSTOMER"),
-
-  store_name: z.string().trim().min(2).max(150).optional(),
-
-  store_description: z.string().max(2000).optional(),
-
-  business_address: z.string().max(500).optional()
-}).superRefine((data, ctx) => {
-  if (data.role === "SELLER" && !data.store_name) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Store name is required for seller registration",
-      path: ["store_name"]
-    });
-  }
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false
 });
+
+const registerSchema = z.object({
+  first_name: z.string().trim().min(1).max(100),
+  last_name: z.string().trim().min(1).max(100),
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(128),
+  phone: z.string().max(30).optional()
+}).strict();
 
 const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1).max(72)
-});
+  email: z.string().email(),
+  password: z.string().min(1)
+}).strict();
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1)
-});
+}).strict();
 
 router.post(
   "/register",
+  authLimiter,
   validate(registerSchema),
-  authController.register
+  controller.register
 );
 
 router.post(
   "/login",
+  authLimiter,
   validate(loginSchema),
-  authController.login
+  controller.login
 );
 
 router.post(
   "/refresh",
+  authLimiter,
   validate(refreshSchema),
-  authController.refresh
+  controller.refresh
 );
 
 router.post(
   "/logout",
-  authenticate,
+  requireAuth,
   validate(refreshSchema),
-  authController.logout
+  controller.logout
 );
 
 router.get(
   "/me",
-  authenticate,
-  authController.me
+  requireAuth,
+  controller.me
 );
 
 module.exports = router;

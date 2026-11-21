@@ -3,37 +3,66 @@ require("dotenv").config();
 
 const { z } = require("zod");
 
-const environmentSchema = z.object({
-  PORT: z.coerce.number().default(3000),
+const schema = z.object({
+  NODE_ENV: z.enum([
+    "development",
+    "test",
+    "production"
+  ]).default("development"),
 
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  PORT: z.coerce.number().int().positive().default(3000),
 
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  DATABASE_URL: z.string().min(1),
 
-  JWT_SECRET: z
-    .string()
-    .min(32, "JWT_SECRET must be at least 32 characters"),
-
-  JWT_REFRESH_SECRET: z
-    .string()
-    .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
+  JWT_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
 
   ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),
-
   REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
 
-  ALLOWED_ORIGINS: z
-    .string()
-    .default("http://localhost:5173")
+  ALLOWED_ORIGINS: z.string().default(
+    "http://localhost:5173"
+  ),
+
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
+
+  PAYMENT_PROVIDER: z.enum([
+    "maya",
+    "mock"
+  ]).default("maya"),
+
+  MAYA_ENV: z.enum([
+    "sandbox",
+    "production"
+  ]).default("sandbox"),
+
+  MAYA_PUBLIC_KEY: z.string().optional(),
+  MAYA_SECRET_KEY: z.string().optional(),
+  MAYA_WEBHOOK_SECRET: z.string().optional(),
+
+  MAYA_SUCCESS_URL: z.string().url().optional(),
+  MAYA_CANCEL_URL: z.string().url().optional(),
+
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_MODEL: z.string().optional(),
+
+  OPENROUTER_BASE_URL: z.string().url().default(
+    "https://openrouter.ai/api/v1"
+  ),
+
+  APP_BASE_URL: z.string().url().optional(),
+  API_BASE_URL: z.string().url().optional()
 });
 
-const result = environmentSchema.safeParse(process.env);
+const result = schema.safeParse(process.env);
 
 if (!result.success) {
-  console.error("Invalid environment configuration:");
-  console.error(result.error.flatten().fieldErrors);
+  console.error(
+    "Invalid environment configuration:",
+    result.error.flatten().fieldErrors
+  );
+
   process.exit(1);
 }
 

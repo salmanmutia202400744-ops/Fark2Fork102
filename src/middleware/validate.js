@@ -1,20 +1,24 @@
 
-function validate(schema) {
-    return (req, res, next) => {
-      const result = schema.safeParse(req.body);
-  
-      if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation failed",
-          errors: result.error.flatten().fieldErrors
-        });
-      }
-  
-      req.body = result.data;
-      next();
-    };
-  }
-  
-  module.exports = validate;
-  
+const ApiError = require("../utils/ApiError");
+
+function validate(schema, source = "body") {
+  return (req, res, next) => {
+    const result = schema.safeParse(req[source]);
+
+    if (!result.success) {
+      return next(
+        new ApiError(
+          422,
+          "VALIDATION_ERROR",
+          "Please check the submitted information.",
+          result.error.flatten()
+        )
+      );
+    }
+
+    req[source] = result.data;
+    next();
+  };
+}
+
+module.exports = validate;

@@ -1,26 +1,60 @@
 
+const crypto = require("crypto");
+const ApiError = require("../utils/ApiError");
+
+function requestId(req, res, next) {
+  req.requestId = crypto.randomUUID();
+
+  res.setHeader("X-Request-Id", req.requestId);
+
+  next();
+}
+
 function notFound(req, res, next) {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.method} ${req.originalUrl}`
-  });
+  next(
+    new ApiError(
+      404,
+      "NOT_FOUND",
+      "The requested resource was not found."
+    )
+  );
 }
 
 function errorHandler(error, req, res, next) {
-  console.error(error);
+  if (res.headersSent) {
+    return next(error);
+  }
 
-  const statusCode = error.statusCode || 500;
+  const status = error.status || 500;
 
-  res.status(statusCode).json({
+  const code = error.code && status < 500
+    ? error.code
+    : "INTERNAL_SERVER_ERROR";
+
+  const message = status >= 500
+    ? "An unexpected server error occurred."
+    : error.message;
+
+  if (status >= 500) {
+    console.error({
+      requestId: req.requestId,
+      message: error.message
+    });
+  }
+
+  res.status(status).json({
     success: false,
-    message:
-      process.env.NODE_ENV === "production"
-        ? "An unexpected server error occurred"
-        : error.message || "Internal server error"
+    error: {
+      code,
+      message,
+      details: error.details || null
+    },
+    requestId: req.requestId
   });
 }
 
 module.exports = {
+  requestId,
   notFound,
   errorHandler
 };

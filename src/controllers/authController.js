@@ -3,12 +3,11 @@ const authService = require("../services/authService");
 
 async function register(req, res, next) {
   try {
-    const result = await authService.register(req.body);
+    const data = await authService.register(req.body);
 
     res.status(201).json({
       success: true,
-      message: "Account registered successfully",
-      data: result
+      data
     });
   } catch (error) {
     next(error);
@@ -17,12 +16,11 @@ async function register(req, res, next) {
 
 async function login(req, res, next) {
   try {
-    const result = await authService.login(req.body);
+    const data = await authService.login(req.body);
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Login successful",
-      data: result
+      data
     });
   } catch (error) {
     next(error);
@@ -31,14 +29,13 @@ async function login(req, res, next) {
 
 async function refresh(req, res, next) {
   try {
-    const result = await authService.refreshSession(
+    const data = await authService.refresh(
       req.body.refreshToken
     );
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Token refreshed successfully",
-      data: result
+      data
     });
   } catch (error) {
     next(error);
@@ -47,26 +44,26 @@ async function refresh(req, res, next) {
 
 async function logout(req, res, next) {
   try {
-    const result = await authService.logout(
-      req.user.id,
-      req.body.refreshToken
+    await authService.logout(
+      req.body.refreshToken,
+      req.user.id
     );
 
-    res.status(200).json({
+    res.json({
       success: true,
-      ...result
+      data: {
+        message: "Logged out successfully."
+      }
     });
   } catch (error) {
     next(error);
   }
 }
 
-async function me(req, res) {
-  res.status(200).json({
+function me(req, res) {
+  res.json({
     success: true,
-    data: {
-      user: req.user
-    }
+    data: req.user
   });
 }
 

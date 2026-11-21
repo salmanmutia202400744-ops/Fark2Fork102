@@ -1,247 +1,191 @@
 
-const pool = require("../config/database");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const config = require("../config/environment");
+const env = require("../config/environment");
+const db = require("../config/database");
+const users = require("../repositories/userRepository");
+const ApiError = require("../utils/ApiError");
 
 const {
-  generateAccessToken,
-  generateRefreshToken,
-  hashToken,
-  getRefreshTokenExpiry
-} = require("../utils/generateToken");
+  createAccessToken,
+  createRefreshToken,
+  hashToken
+} = require("../utils/tokens");
 
-function publicUser(user) {
-  return {
-    id: user.id,
-    first_name: user.first_name,
-    last_name: user.last_name,
-    email: user.email,
-    phone: user.phone,
-    role: user.role,
-    is_active: user.is_active,
-    is_verified: user.is_verified,
-    created_at: user.created_at
-  };
-}
+async function createSession(user) {
+  const accessToken = createAccessToken(user);
+  const refreshToken = createRefreshToken(user);
 
-async function saveRefreshToken(userId, refreshToken) {
-  await pool.query(
-    `INSERT INTO refresh_tokens
+  const payload = jwt.decode(refreshToken);
+
+  await db.query(
+    `INSERT INTO public.refresh_tokens
       (user_id, token_hash, expires_at)
      VALUES ($1, $2, $3)`,
     [
-      userId,
+      user.id,
       hashToken(refreshToken),
-      getRefreshTokenExpiry()
+      new Date(payload.exp * 1000)
     ]
   );
-}
-
-async function createSession(user) {
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-
-  await saveRefreshToken(user.id, refreshToken);
 
   return {
-    user: publicUser(user),
+    user,
     accessToken,
-    refreshToken
+    refreshToken,
+    tokenType: "Bearer"
   };
 }
 
 async function register(data) {
-  const client = await pool.connect();
+  const email = data.email.trim().toLowerCase();
+
+  const existing = await users.findByEmail(email);
+
+  if (existing) {
+    throw new ApiError(
+      409,
+      "EMAIL_ALREADY_EXISTS",
+      "An account with this email already exists."
+    );
+  }
+
+  const passwordHash = await bcrypt.hash(
+    data.password,
+    12
+  );
+
+  let user;
 
   try {
-    await client.query("BEGIN");
-
-    const email = data.email.toLowerCase().trim();
-
-    const existingUser = await client.query(
-      "SELECT id FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      const error = new Error("Email address is already registered");
-      error.statusCode = 409;
-      throw error;
-    }
-
-    const passwordHash = await bcrypt.hash(data.password, 12);
-
-    const userResult = await client.query(
-      `INSERT INTO users
-        (first_name, last_name, email, password_hash, phone, role)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, first_name, last_name, email, phone,
-                 role, is_active, is_verified, created_at`,
-      [
-        data.first_name,
-        data.last_name,
+    user = await db.withTransaction((client) =>
+      users.createUser(client, {
+        ...data,
         email,
-        passwordHash,
-        data.phone || null,
-        data.role || "CUSTOMER"
-      ]
+        password_hash: passwordHash
+      })
     );
-
-    const user = userResult.rows[0];
-
-    if (user.role === "SELLER") {
-      await client.query(
-        `INSERT INTO seller_profiles
-          (user_id, store_name, description, business_address)
-         VALUES ($1, $2, $3, $4)`,
-        [
-          user.id,
-          data.store_name,
-          data.store_description || null,
-          data.business_address || null
-        ]
+  } catch (error) {
+    if (error.code === "23505") {
+      throw new ApiError(
+        409,
+        "EMAIL_ALREADY_EXISTS",
+        "An account with this email already exists."
       );
     }
 
-    await client.query("COMMIT");
-
-    return await createSession(user);
-  } catch (error) {
-    await client.query("ROLLBACK");
-
-    if (error.code === "23505") {
-      const conflict = new Error("Email address is already registered");
-      conflict.statusCode = 409;
-      throw conflict;
-    }
-
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function login(data) {
-  const email = data.email.toLowerCase().trim();
-
-  const result = await pool.query(
-    `SELECT id, first_name, last_name, email, password_hash,
-            phone, role, is_active, is_verified, created_at
-     FROM users
-     WHERE email = $1`,
-    [email]
-  );
-
-  if (result.rows.length === 0) {
-    const error = new Error("Invalid email or password");
-    error.statusCode = 401;
-    throw error;
-  }
-
-  const user = result.rows[0];
-
-  const passwordMatches = await bcrypt.compare(
-    data.password,
-    user.password_hash
-  );
-
-  if (!passwordMatches) {
-    const error = new Error("Invalid email or password");
-    error.statusCode = 401;
-    throw error;
-  }
-
-  if (!user.is_active) {
-    const error = new Error("Your account is inactive");
-    error.statusCode = 403;
     throw error;
   }
 
   return createSession(user);
 }
 
-async function refreshSession(token) {
-  let decoded;
+async function login(data) {
+  const email = data.email.trim().toLowerCase();
 
-  try {
-    decoded = jwt.verify(token, config.JWT_REFRESH_SECRET);
-  } catch (error) {
-    const invalid = new Error("Invalid or expired refresh token");
-    invalid.statusCode = 401;
-    throw invalid;
+  const user = await users.findByEmail(email);
+
+  const validPassword = user
+    ? await bcrypt.compare(
+        data.password,
+        user.password_hash
+      )
+    : false;
+
+  if (!validPassword) {
+    throw new ApiError(
+      401,
+      "INVALID_CREDENTIALS",
+      "Invalid email or password."
+    );
   }
 
-  if (decoded.type !== "refresh") {
-    const invalid = new Error("Invalid refresh token");
-    invalid.statusCode = 401;
-    throw invalid;
+  if (!user.is_active) {
+    throw new ApiError(
+      403,
+      "ACCOUNT_DISABLED",
+      "This account is disabled."
+    );
   }
 
-  const oldTokenHash = hashToken(token);
+  const safeUser = await users.findById(user.id);
 
-  const revoked = await pool.query(
-    `UPDATE refresh_tokens
-     SET revoked_at = NOW()
-     WHERE token_hash = $1
-       AND user_id = $2
-       AND revoked_at IS NULL
-       AND expires_at > NOW()
-     RETURNING user_id`,
-    [oldTokenHash, decoded.sub]
-  );
-
-  if (revoked.rows.length === 0) {
-    const invalid = new Error("Refresh token has already been used or revoked");
-    invalid.statusCode = 401;
-    throw invalid;
-  }
-
-  const userResult = await pool.query(
-    `SELECT id, first_name, last_name, email, phone,
-            role, is_active, is_verified, created_at
-     FROM users
-     WHERE id = $1`,
-    [decoded.sub]
-  );
-
-  if (
-    userResult.rows.length === 0 ||
-    !userResult.rows[0].is_active
-  ) {
-    const invalid = new Error("Account not found or inactive");
-    invalid.statusCode = 401;
-    throw invalid;
-  }
-
-  return createSession(userResult.rows[0]);
+  return createSession(safeUser);
 }
 
-async function logout(userId, refreshToken) {
-  if (!refreshToken) {
-    const error = new Error("Refresh token is required");
-    error.statusCode = 400;
-    throw error;
+async function refresh(refreshToken) {
+  let payload;
+
+  try {
+    payload = jwt.verify(
+      refreshToken,
+      env.JWT_REFRESH_SECRET
+    );
+  } catch {
+    throw new ApiError(
+      401,
+      "INVALID_REFRESH_TOKEN",
+      "Refresh token is invalid or expired."
+    );
   }
 
-  await pool.query(
-    `UPDATE refresh_tokens
+  if (payload.type !== "refresh") {
+    throw new ApiError(
+      401,
+      "INVALID_REFRESH_TOKEN",
+      "Invalid token type."
+    );
+  }
+
+  const tokenHash = hashToken(refreshToken);
+
+  const result = await db.query(
+    `UPDATE public.refresh_tokens
+     SET revoked_at = NOW()
+     WHERE user_id = $1
+       AND token_hash = $2
+       AND revoked_at IS NULL
+       AND expires_at > NOW()
+     RETURNING id`,
+    [payload.sub, tokenHash]
+  );
+
+  if (!result.rowCount) {
+    throw new ApiError(
+      401,
+      "INVALID_REFRESH_TOKEN",
+      "Refresh token has expired or was revoked."
+    );
+  }
+
+  const user = await users.findById(payload.sub);
+
+  if (!user || !user.is_active) {
+    throw new ApiError(
+      401,
+      "INVALID_SESSION",
+      "Account is unavailable."
+    );
+  }
+
+  return createSession(user);
+}
+
+async function logout(refreshToken, userId) {
+  await db.query(
+    `UPDATE public.refresh_tokens
      SET revoked_at = NOW()
      WHERE user_id = $1
        AND token_hash = $2
        AND revoked_at IS NULL`,
     [userId, hashToken(refreshToken)]
   );
-
-  return {
-    message: "Logged out successfully"
-  };
 }
 
 module.exports = {
   register,
   login,
-  refreshSession,
+  refresh,
   logout
 };

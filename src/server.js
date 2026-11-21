@@ -1,38 +1,27 @@
 
 const app = require("./app");
-const pool = require("./config/database");
-const config = require("./config/environment");
+const env = require("./config/environment");
+const { pool } = require("./config/database");
 
-async function startServer() {
-  try {
-    await pool.query("SELECT 1");
+const server = app.listen(env.PORT, "0.0.0.0", () => {
+  console.log(
+    `Farm2Fork API running on port ${env.PORT}`
+  );
+});
 
-    const server = app.listen(config.PORT, () => {
-      console.log("-----------------------------------");
-      console.log("Farm2Fork Backend Started");
-      console.log(`Port: ${config.PORT}`);
-      console.log(`Environment: ${config.NODE_ENV}`);
-      console.log("-----------------------------------");
-    });
+async function shutdown(signal) {
+  console.log(`Received ${signal}. Shutting down...`);
 
-    async function shutdown() {
-      console.log("Shutting down Farm2Fork backend...");
-
-      server.close(async () => {
-        await pool.end();
-        console.log("Database connection closed.");
-        process.exit(0);
-      });
+  server.close(async () => {
+    try {
+      await pool.end();
+      process.exit(0);
+    } catch (error) {
+      console.error(error.message);
+      process.exit(1);
     }
-
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
-
-  } catch (error) {
-    console.error("Unable to start the server:", error.message);
-    await pool.end();
-    process.exit(1);
-  }
+  });
 }
 
-startServer();
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

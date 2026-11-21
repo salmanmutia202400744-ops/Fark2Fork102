@@ -1,61 +1,89 @@
 
 const jwt = require("jsonwebtoken");
-const pool = require("../config/database");
-const config = require("../config/environment");
 
-async function authenticate(req, res, next) {
+const env = require("../config/environment");
+const users = require("../repositories/userRepository");
+const ApiError = require("../utils/ApiError");
+
+async function requireAuth(req, res, next) {
   try {
-    const authorization = req.headers.authorization;
+    const authorization = req.headers.authorization || "";
 
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication token is required"
-      });
+    if (!authorization.startsWith("Bearer ")) {
+      throw new ApiError(
+        401,
+        "UNAUTHENTICATED",
+        "An access token is required."
+      );
     }
 
-    const token = authorization.split(" ")[1];
+    const token = authorization.slice(7);
 
-    const decoded = jwt.verify(token, config.JWT_SECRET);
+    let payload;
 
-    if (decoded.type !== "access") {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid access token"
-      });
+    try {
+      payload = jwt.verify(token, env.JWT_SECRET);
+    } catch {
+      throw new ApiError(
+        401,
+        "INVALID_TOKEN",
+        "Access token is invalid or expired."
+      );
     }
 
-    const result = await pool.query(
-      `SELECT id, first_name, last_name, email, phone, role,
-              is_active, is_verified, created_at
-       FROM users
-       WHERE id = $1`,
-      [decoded.sub]
-    );
-
-    if (result.rows.length === 0 || !result.rows[0].is_active) {
-      return res.status(401).json({
-        success: false,
-        message: "Account not found or inactive"
-      });
+    if (payload.type !== "access") {
+      throw new ApiError(
+        401,
+        "INVALID_TOKEN",
+        "Invalid token type."
+      );
     }
 
-    req.user = result.rows[0];
+    const user = await users.findById(payload.sub);
+
+    if (!user || !user.is_active) {
+      throw new ApiError(
+        401,
+        "INVALID_SESSION",
+        "Account is unavailable."
+      );
+    }
+
+    req.user = user;
 
     next();
   } catch (error) {
-    if (
-      error.name === "JsonWebTokenError" ||
-      error.name === "TokenExpiredError"
-    ) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid or expired authentication token"
-      });
-    }
-
     next(error);
   }
 }
 
-module.exports = authenticate;
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(
+        new ApiError(
+          401,
+          "UNAUTHENTICATED",
+          "Authentication is required."
+        )
+      );
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ApiError(
+          403,
+          "FORBIDDEN",
+          "You do not have permission."
+        )
+      );
+    }
+
+    next();
+  };
+}
+
+module.exports = {
+  requireAuth,
+  requireRole
+};
