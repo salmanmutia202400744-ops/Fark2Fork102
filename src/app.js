@@ -12,6 +12,7 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const sellerRoutes = require("./routes/sellerRoutes");
+const checkoutRoutes = require("./routes/checkoutRoutes");
 
 const {
   requestId,
@@ -57,7 +58,7 @@ app.use(
   })
 );
 
-// Register raw-body payment webhook routes here
+// Register Maya payment webhook routes here
 // before express.json() when implementing Maya.
 
 app.use(express.json({ limit: "1mb" }));
@@ -73,14 +74,24 @@ app.get("/", (req, res) => {
   });
 });
 
+// Health and authentication
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
 
+// Categories and products
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/products", productRoutes);
+
+// Shopping cart
 app.use("/api/v1/cart", cartRoutes);
+
+// Seller management
 app.use("/api/v1/seller", sellerRoutes);
 
+// Customer checkout
+app.use("/api/v1/checkout", checkoutRoutes);
+
+// Error handlers must be last
 app.use(notFound);
 app.use(errorHandler);
 
