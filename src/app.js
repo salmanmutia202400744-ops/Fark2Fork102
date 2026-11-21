@@ -76,14 +76,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// Health and authentication
-app.use("/api/v1/health", healthRoutes);
-app.use("/api/v1/auth", authRoutes);
-
-// Categories and products
-app.use("/api/v1/categories", categoryRoutes);
-app.use("/api/v1/products", productRoutes);
-
 // Shopping cart
 app.use("/api/v1/cart", cartRoutes);
 
@@ -93,12 +85,14 @@ app.use("/api/v1/seller", sellerRoutes);
 // Customer checkout
 app.use("/api/v1/checkout", checkoutRoutes);
 
+// Maya payments
 app.use("/api/v1/payments", mayaPaymentRoutes);
-// Error handlers must be last
-app.use(notFound);
-app.use(errorHandler);
 
 // Customer delivery addresses
 app.use("/api/v1/addresses", addressRoutes);
+
+// Error handlers must always be last
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;
