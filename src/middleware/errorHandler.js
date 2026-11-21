@@ -25,20 +25,30 @@ function errorHandler(error, req, res, next) {
     return next(error);
   }
 
-  const status = error.status || 500;
+  const status = error.statusCode || error.status || 500;
 
-  const code = error.code && status < 500
-    ? error.code
-    : "INTERNAL_SERVER_ERROR";
+  const code =
+    typeof error.code === "string"
+      ? error.code
+      : status >= 500
+        ? "INTERNAL_SERVER_ERROR"
+        : "REQUEST_FAILED";
 
-  const message = status >= 500
-    ? "An unexpected server error occurred."
-    : error.message;
+  const message =
+    status >= 500
+      ? "An unexpected server error occurred."
+      : error.message;
 
+  // Log useful diagnostic information on the server only.
   if (status >= 500) {
-    console.error({
+    console.error("Farm2Fork API Error:", {
       requestId: req.requestId,
-      message: error.message
+      method: req.method,
+      path: req.originalUrl,
+      status,
+      code,
+      message: error.message,
+      stack: error.stack
     });
   }
 
@@ -47,7 +57,7 @@ function errorHandler(error, req, res, next) {
     error: {
       code,
       message,
-      details: error.details || null
+      details: status >= 500 ? null : (error.details || null)
     },
     requestId: req.requestId
   });
