@@ -14,6 +14,7 @@ const cartRoutes = require("./routes/cartRoutes");
 const sellerRoutes = require("./routes/sellerRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
 const mayaPaymentRoutes = require("./routes/mayaPaymentRoutes");
+const addressRoutes = require("./routes/addressRoutes");
 
 const {
   requestId,
@@ -96,5 +97,8 @@ app.use("/api/v1/payments", mayaPaymentRoutes);
 // Error handlers must be last
 app.use(notFound);
 app.use(errorHandler);
+
+// Customer delivery addresses
+app.use("/api/v1/addresses", addressRoutes);
 
 module.exports = app;
