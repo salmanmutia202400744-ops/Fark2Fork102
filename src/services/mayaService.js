@@ -61,14 +61,14 @@ async function mayaRequest(path, method, body, key) {
   }
 
   if (!response.ok) {
-  console.error("Maya Sandbox Error:", {
-    endpoint: path,
-    status: response.status,
-    contentType: response.headers.get("content-type"),
-    providerCode: result.code || null,
-    providerMessage: result.message || null,
-    retryAfter: response.headers.get("retry-after")
-  });
+    console.error("Maya Sandbox Error:", {
+      endpoint: path,
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      providerCode: result.code || null,
+      providerMessage: result.message || null,
+      retryAfter: response.headers.get("retry-after")
+    });
 
     const error = new Error(
       `Maya request failed with status ${response.status}`
@@ -76,7 +76,12 @@ async function mayaRequest(path, method, body, key) {
 
     error.status = 502;
     error.statusCode = 502;
-    error.code = "MAYA_API_ERROR";
+    error.providerStatus = response.status;
+    error.providerCode = result.code || null;
+    error.code =
+      response.status === 401 || response.status === 403
+        ? "MAYA_AUTH_ERROR"
+        : "MAYA_API_ERROR";
 
     throw error;
   }
