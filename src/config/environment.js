@@ -38,11 +38,24 @@ const schema = z.object({
   ]).default("sandbox"),
 
   MAYA_PUBLIC_KEY: z.string().optional(),
-  MAYA_SECRET_KEY: z.string().optional(),
-  MAYA_WEBHOOK_SECRET: z.string().optional(),
+MAYA_SECRET_KEY: z.string().optional(),
+MAYA_WEBHOOK_SECRET: z.string().optional(),
+
+MAYA_BASE_URL: z.string().url().default(
+  "https://pg-sandbox.paymaya.com"
+),
+
+MAYA_REDIRECT_BASE_URL: z.string().url().optional(),
 
   MAYA_SUCCESS_URL: z.string().url().optional(),
   MAYA_CANCEL_URL: z.string().url().optional(),
+
+// Google Gemini AI
+GEMINI_API_KEY: z.string().min(1).optional(),
+
+GEMINI_MODEL: z.string().default(
+  "gemini-2.5-flash"
+),
 
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().optional(),

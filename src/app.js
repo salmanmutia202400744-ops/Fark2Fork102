@@ -18,6 +18,7 @@ const mayaPaymentRoutes = require("./routes/mayaPaymentRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const sellerOrderRoutes = require("./routes/sellerOrderRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // Error handlers
 const {
@@ -112,6 +113,9 @@ app.use("/api/v1/orders", orderRoutes);
 
 // Customer delivery addresses
 app.use("/api/v1/addresses", addressRoutes);
+
+// Farm2Fork AI assistant
+app.use("/api/v1/ai", aiRoutes);
 
 // Error handlers must always be last
 app.use(notFound);

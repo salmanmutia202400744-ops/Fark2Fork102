@@ -35,18 +35,23 @@ async function mayaRequest(path, method, body, key) {
         ? { body: JSON.stringify(body) }
         : {}),
       signal: AbortSignal.timeout(15000)
-    });
-  } catch (err) {
+      });
+    } catch (err) {
     console.error("Maya Network Error:", {
       endpoint: path,
-      message: err.message
+      message: err.message,
+      cause: err.cause?.message || null,
+      code: err.cause?.code || null,
+      name: err.name
     });
 
     const error = new Error(
       "Unable to connect to Maya Sandbox."
     );
+
     error.status = 502;
     error.code = "MAYA_CONNECTION_ERROR";
+
     throw error;
   }
 
