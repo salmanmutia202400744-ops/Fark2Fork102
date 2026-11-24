@@ -28,6 +28,10 @@ const aiLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const analyticsController = require(
+  "../controllers/aiAnalyticsController"
+);
+
 // AI conversation
 router.post(
   "/chat",
@@ -74,6 +78,20 @@ router.post(
   "/restock",
   requireRole("SELLER"),
   controller.restock
+);
+
+// Seller sales analytics
+router.get(
+  "/analytics",
+  requireRole("SELLER"),
+  analyticsController.analytics
+);
+
+// Seller inventory monitoring
+router.get(
+  "/inventory",
+  requireRole("SELLER"),
+  analyticsController.inventory
 );
 
 module.exports = router;
