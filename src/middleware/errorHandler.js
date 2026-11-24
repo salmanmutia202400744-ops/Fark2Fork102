@@ -34,10 +34,31 @@ function errorHandler(error, req, res, next) {
         ? "INTERNAL_SERVER_ERROR"
         : "REQUEST_FAILED";
 
-  const message =
-    status >= 500
-      ? "An unexpected server error occurred."
-      : error.message;
+  const publicAIErrors = {
+  AI_UNAVAILABLE:
+    "The AI assistant is temporarily busy. Please try again shortly.",
+
+  AI_NOT_CONFIGURED:
+    "The AI assistant is currently unavailable.",
+
+  INVALID_AI_RESPONSE:
+    "The assistant could not generate a valid response. Please try again.",
+
+  EMPTY_AI_RESPONSE:
+    "The assistant returned an empty response. Please try again."
+};
+
+const message =
+  status >= 500
+    ? (
+        Object.prototype.hasOwnProperty.call(
+          publicAIErrors,
+          code
+        )
+          ? publicAIErrors[code]
+          : "An unexpected server error occurred."
+      )
+    : error.message;
 
   // Log useful diagnostic information on the server only.
   if (status >= 500) {
